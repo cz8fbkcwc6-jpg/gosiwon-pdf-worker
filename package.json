@@ -10,7 +10,7 @@
     "install-browsers": "npx playwright install chromium"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   },
   "dependencies": {
     "express": "^4.21.0",
