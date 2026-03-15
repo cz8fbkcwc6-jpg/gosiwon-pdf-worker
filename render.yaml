@@ -1,0 +1,13 @@
+# Render Blueprint: optional one-click deploy
+# Dashboard: https://dashboard.render.com/select-repo?type=web
+services:
+  - type: web
+    name: gosiwon-pdf-worker
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PDF_WORKER_SECRET
+        sync: false
+      - key: PORT
+        value: 3000
