@@ -1,6 +1,5 @@
 /**
- * Build a single HTML document for the signed contract. Uses Noto Sans KR from Google Fonts for Korean.
- * Long terms and signature images are supported via normal HTML/CSS.
+ * Build a single HTML document for the signed contract. Uses Noto Sans KR (local @font-face or Google Fonts).
  */
 function escapeHtml(s) {
   if (s == null || typeof s !== "string") return "";
@@ -12,6 +11,20 @@ function escapeHtml(s) {
     .replace(/'/g, "&#39;");
 }
 
+function fontFaceCss(fontEmbed) {
+  if (!fontEmbed?.base64 || !fontEmbed?.mime) return "";
+  const format = fontEmbed.mime.includes("woff2") ? "woff2" : fontEmbed.mime.includes("ttf") ? "truetype" : "opentype";
+  return `
+    @font-face {
+      font-family: 'Noto Sans KR';
+      font-style: normal;
+      font-weight: 400 700;
+      font-display: block;
+      src: url(data:${fontEmbed.mime};base64,${fontEmbed.base64}) format('${format}');
+    }
+  `;
+}
+
 /**
  * @param {{
  *   version: number;
@@ -21,6 +34,7 @@ function escapeHtml(s) {
  *   terms: string;
  *   ownerSignatureUrl?: string;
  *   residentSignatureUrl?: string;
+ *   fontEmbed?: { mime: string; base64: string } | null;
  * }} payload
  * @returns {string} HTML string
  */
@@ -33,6 +47,7 @@ export function buildHtml(payload) {
     terms = "",
     ownerSignatureUrl,
     residentSignatureUrl,
+    fontEmbed = null,
   } = payload;
 
   const ownerRows = Object.entries(ownerFields)
@@ -52,17 +67,20 @@ export function buildHtml(payload) {
     : "";
 
   const signedAtStr = signedAt ? new Date(signedAt).toISOString() : "";
+  const localFontCss = fontFaceCss(fontEmbed);
+  const fallbackFontLink = !localFontCss
+    ? `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=block" rel="stylesheet" />`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet" />
+  ${fallbackFontLink}
   <style>
     * { box-sizing: border-box; }
+    ${localFontCss}
     body {
       font-family: 'Noto Sans KR', sans-serif;
       font-size: 11px;

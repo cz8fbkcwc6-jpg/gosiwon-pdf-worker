@@ -1,11 +1,51 @@
 /**
  * PDF Worker: accepts contract payload, returns PDF bytes.
- * Node.js + Playwright; HTML/CSS with Noto Sans KR for Korean.
+ * Node.js + Playwright; local Noto Sans KR for Korean (flat repo: index.js and fonts/ are siblings).
  * Auth: Authorization: Bearer <WORKER_SECRET>
  */
 import express from "express";
 import { chromium } from "playwright";
+import { readFileSync, existsSync } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { buildHtml } from "./buildHtml.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+/** Fonts directory: pdf-worker/fonts/ when index.js is at pdf-worker/index.js (flat structure). */
+const FONTS_DIR = path.join(__dirname, "fonts");
+
+const FONT_CANDIDATES = [
+  { file: "NotoSansKR-Regular.ttf", mime: "font/ttf" },
+  { file: "NotoSansKR-Bold.ttf", mime: "font/ttf" },
+  { file: "NotoSansKR-Regular.woff2", mime: "font/woff2" },
+  { file: "NotoSansKR-Regular.otf", mime: "font/otf" },
+];
+
+/** @type {{ mime: string; base64: string } | null} */
+let fontEmbed = null;
+
+const FONTS_DIR_ABSOLUTE = path.resolve(FONTS_DIR);
+
+function loadLocalFont() {
+  for (const { file, mime } of FONT_CANDIDATES) {
+    const fontPath = path.join(FONTS_DIR, file);
+    const fontPathAbsolute = path.resolve(fontPath);
+    if (existsSync(fontPath)) {
+      try {
+        const buf = readFileSync(fontPath);
+        fontEmbed = { mime, base64: buf.toString("base64") };
+        const ext = file.split(".").pop() || "";
+        console.log(`[PDF-WORKER] startup: font found=true path=${fontPathAbsolute} extension=${ext} embeddedPayloadLength=${fontEmbed.base64.length}`);
+        return;
+      } catch (e) {
+        console.warn(`[PDF-WORKER] startup: font read failed path=${fontPathAbsolute}`, e);
+      }
+    }
+  }
+  console.warn(`[PDF-WORKER] startup: font found=false path=${FONTS_DIR_ABSOLUTE} (using Google Fonts fallback)`);
+}
+
+loadLocalFont();
 
 const PORT = Number(process.env.PORT) || 3000;
 const WORKER_SECRET = process.env.PDF_WORKER_SECRET || process.env.WORKER_SECRET;
@@ -47,6 +87,7 @@ app.post("/generate", authMiddleware, async (req, res) => {
       terms: payload.terms ?? "",
       ownerSignatureUrl: payload.ownerSignatureUrl,
       residentSignatureUrl: payload.residentSignatureUrl,
+      fontEmbed,
     });
 
     browser = await chromium.launch({
@@ -61,6 +102,11 @@ app.post("/generate", authMiddleware, async (req, res) => {
       timeout: 15000,
     });
 
+    console.log(`[PDF-WORKER] generate request: fontEmbed=${!!fontEmbed}`);
+    await page.evaluateHandle("document.fonts.ready");
+    console.log("[PDF-WORKER] document.fonts.ready completed, generating PDF");
+    await page.emulateMedia({ media: "print" });
+
     const pdfBuffer = await page.pdf({
       format: "A4",
       margin: { top: "15mm", right: "15mm", bottom: "15mm", left: "15mm" },
@@ -70,13 +116,13 @@ app.post("/generate", authMiddleware, async (req, res) => {
     await browser.close();
     browser = null;
 
-    console.log(`[PDF-WORKER] generated in ${Date.now() - start}ms, size=${pdfBuffer.length}`);
+    console.log(`[PDF-WORKER] generate request: fontEmbed=${!!fontEmbed} pdfBytes=${pdfBuffer.length} success=true`);
     res.set("Content-Type", "application/pdf");
     res.set("Content-Length", String(pdfBuffer.length));
     res.send(Buffer.from(pdfBuffer));
   } catch (e) {
     if (browser) await browser.close().catch(() => {});
-    console.error("[PDF-WORKER] error", e);
+    console.error(`[PDF-WORKER] generate request: fontEmbed=${!!fontEmbed} success=false`, e);
     res.status(500).json({
       ok: false,
       error: "PDF_GENERATION_FAILED",
