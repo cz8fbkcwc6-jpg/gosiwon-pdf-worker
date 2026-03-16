@@ -110,6 +110,7 @@ app.post("/generate", authMiddleware, async (req, res) => {
   }
 
   try {
+    console.log("[PDF-WORKER] residentConsent=", JSON.stringify(payload.residentConsent));
     const html = buildHtml({
       version: payload.version ?? 1,
       signedAt: payload.signedAt ?? "",
@@ -123,6 +124,9 @@ app.post("/generate", authMiddleware, async (req, res) => {
       residentName: payload.residentName,
       ipAddress: payload.ipAddress,
       deviceType: payload.deviceType,
+      hostelName: payload.hostelName,
+      ownerName: payload.ownerName,
+      contractId: payload.contractId,
     });
 
     const browserInstance = await getBrowser();

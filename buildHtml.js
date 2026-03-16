@@ -1,6 +1,6 @@
 /**
  * 입실 계약서 PDF용 HTML 생성. 한국 표준 계약서 스타일(공문서).
- * 파라미터: residentConsent (boolean[5]) 로 동의 항목 5개 체크 여부 전달.
+ * 파라미터: residentConsent (boolean[5]), hostelName, ownerName, contractId 등.
  */
 function escapeHtml(s) {
   if (s == null || typeof s !== "string") return "";
@@ -45,6 +45,37 @@ function formatSignedAtKo(iso) {
   }
 }
 
+/** 서명일시 → 날짜만 한국식 (계약 체결일용) */
+function formatSignedAtDateOnly(iso) {
+  if (!iso || typeof iso !== "string") return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" });
+  } catch {
+    return iso;
+  }
+}
+
+/** 금액 필드: 숫자 추출 후 toLocaleString('ko-KR') + '원' */
+function formatCurrency(val) {
+  if (val == null) return "";
+  const str = String(val).trim();
+  const num = Number(str.replace(/[^0-9.-]/g, ""));
+  if (Number.isNaN(num)) return str;
+  return num.toLocaleString("ko-KR") + "원";
+}
+
+/** YYYYMMDD → 'YYYY. MM. DD.' */
+function formatDateYmd(val) {
+  if (val == null || typeof val !== "string") return val == null ? "" : String(val);
+  const s = String(val).trim();
+  if (/^\d{8}$/.test(s)) {
+    return `${s.slice(0, 4)}. ${s.slice(4, 6)}. ${s.slice(6, 8)}.`;
+  }
+  return s;
+}
+
 /** 계약 체결 동의 항목 5개 (고정 문구) */
 const CONSENT_TEXTS = [
   "본 계약은 전자문서로 작성되며 서면 계약과 동일한 법적 효력이 발생함에 동의합니다.",
@@ -53,6 +84,9 @@ const CONSENT_TEXTS = [
   "본인은 본인의 휴대전화로 수신한 인증번호를 직접 입력하여 계약 절차를 진행하였으며 타인에게 인증번호를 제공하지 않았음을 확인합니다.",
   "계약 체결 및 분쟁 대응을 위하여 필요한 범위 내에서 개인정보가 수집·보관될 수 있음에 동의합니다.",
 ];
+
+const CURRENCY_KEYS = ["보증금", "월 이용료", "월이용료"];
+const DATE_KEYS = ["계약 시작일", "계약 종료일"];
 
 /**
  * @param {{
@@ -68,6 +102,9 @@ const CONSENT_TEXTS = [
  *   residentName?: string;
  *   ipAddress?: string;
  *   deviceType?: string;
+ *   hostelName?: string;
+ *   ownerName?: string;
+ *   contractId?: string;
  * }} payload
  * @returns {string} HTML string
  */
@@ -85,16 +122,26 @@ export function buildHtml(payload) {
     residentName: payloadResidentName,
     ipAddress,
     deviceType,
+    hostelName = "",
+    ownerName = "",
+    contractId = "",
   } = payload;
 
   const residentName = payloadResidentName ?? residentFields["이름"] ?? residentFields["name"] ?? "";
   const signedAtKo = formatSignedAtKo(signedAt);
+  const signedAtDateOnly = formatSignedAtDateOnly(signedAt);
+  const contractIdDisplay = String(contractId).slice(0, 8);
 
   const ownerRows = Object.entries(ownerFields)
-    .map(([k, v]) => `<tr><td class="cell-label">${escapeHtml(k)}</td><td class="cell-value">${escapeHtml(String(v))}</td></tr>`)
+    .map(([k, v]) => {
+      let display = String(v ?? "");
+      if (CURRENCY_KEYS.includes(k)) display = formatCurrency(v);
+      else if (DATE_KEYS.includes(k)) display = formatDateYmd(v);
+      return `<tr><td class="cell-label">${escapeHtml(k)}</td><td class="cell-value">${escapeHtml(display)}</td></tr>`;
+    })
     .join("");
   const residentRows = Object.entries(residentFields)
-    .map(([k, v]) => `<tr><td class="cell-label">${escapeHtml(k)}</td><td class="cell-value">${escapeHtml(String(v))}</td></tr>`)
+    .map(([k, v]) => `<tr><td class="cell-label">${escapeHtml(k)}</td><td class="cell-value">${escapeHtml(String(v ?? ""))}</td></tr>`)
     .join("");
 
   const termsHtml = escapeHtml(terms || "-").replace(/\n/g, "<br>");
@@ -111,6 +158,15 @@ export function buildHtml(payload) {
   const residentSigHtml = residentSignatureUrl
     ? `<img src="${escapeHtml(residentSignatureUrl)}" alt="입주민 서명" class="sig-img" />`
     : "";
+
+  const partiesSection = `
+  <div class="parties-section">
+    <table class="table-wrap">
+      <tr><td class="cell-label">임대인 (원장)</td><td class="cell-value">고시원 상호: ${escapeHtml(hostelName || "—")} / 원장: ${escapeHtml(ownerName || "—")}</td></tr>
+      <tr><td class="cell-label">임차인 (입주민)</td><td class="cell-value">${escapeHtml(residentName || "—")}</td></tr>
+      <tr><td class="cell-label">계약 번호</td><td class="cell-value">${escapeHtml(contractIdDisplay || "—")}</td></tr>
+    </table>
+  </div>`;
 
   const localFontCss = fontFaceCss(fontEmbed);
   const fallbackFontLink = fontEmbed
@@ -153,6 +209,7 @@ export function buildHtml(payload) {
       padding-bottom: 4px;
       border-bottom: 2px solid #333;
     }
+    .parties-section { margin-bottom: 20px; }
     .table-wrap {
       width: 100%;
       border-collapse: collapse;
@@ -207,6 +264,11 @@ export function buildHtml(payload) {
       font-size: 10pt;
       font-weight: 700;
     }
+    .signature-date {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 10pt;
+    }
     .proof-box {
       margin-top: 24px;
       padding: 14px 16px;
@@ -229,6 +291,8 @@ export function buildHtml(payload) {
 </head>
 <body>
   <h1 class="doc-title">입실 계약서</h1>
+
+  ${partiesSection}
 
   <section class="section">
     <h2 class="section-title">1. 계약 기본 정보</h2>
@@ -264,6 +328,7 @@ export function buildHtml(payload) {
         <span class="signature-label">입주민 (서명인)</span>
       </div>
     </div>
+    <p class="signature-date">계약 체결일: ${escapeHtml(signedAtDateOnly || "—")}</p>
   </section>
 
   <section class="section">
