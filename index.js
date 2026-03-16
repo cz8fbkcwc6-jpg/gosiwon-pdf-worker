@@ -26,6 +26,18 @@ const FONT_CANDIDATES = [
 /** @type {{ mime: string; base64: string } | null} */
 let fontEmbed = null;
 
+/** Browser singleton for reuse across requests. */
+let browser = null;
+
+async function getBrowser() {
+  if (browser && browser.isConnected()) return browser;
+  browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+  });
+  return browser;
+}
+
 const FONTS_DIR_ABSOLUTE = path.resolve(FONTS_DIR);
 
 /** Temporary runtime audit for deployed font selection. */
@@ -97,7 +109,6 @@ app.post("/generate", authMiddleware, async (req, res) => {
     return;
   }
 
-  let browser;
   try {
     const html = buildHtml({
       version: payload.version ?? 1,
@@ -110,12 +121,8 @@ app.post("/generate", authMiddleware, async (req, res) => {
       fontEmbed,
     });
 
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    });
-
-    const page = await browser.newPage();
+    const browserInstance = await getBrowser();
+    const page = await browserInstance.newPage();
 
     await page.setContent(html, {
       waitUntil: "domcontentloaded",
@@ -151,8 +158,7 @@ app.post("/generate", authMiddleware, async (req, res) => {
       printBackground: true,
     });
 
-    await browser.close();
-    browser = null;
+    await page.close();
 
     console.log(`[PDF-WORKER] generate request: fontEmbed=${!!fontEmbed} pdfBytes=${pdfBuffer.length} success=true`);
     res.set("Content-Type", "application/pdf");
@@ -160,6 +166,7 @@ app.post("/generate", authMiddleware, async (req, res) => {
     res.send(Buffer.from(pdfBuffer));
   } catch (e) {
     if (browser) await browser.close().catch(() => {});
+    browser = null;
     console.error(`[PDF-WORKER] generate request: fontEmbed=${!!fontEmbed} success=false`, e);
     res.status(500).json({
       ok: false,
@@ -170,7 +177,7 @@ app.post("/generate", authMiddleware, async (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({ ok: true, service: "contract-pdf-worker" });
+  res.json({ ok: true, service: "contract-pdf-worker", uptime: process.uptime() });
 });
 
 app.listen(PORT, () => {
