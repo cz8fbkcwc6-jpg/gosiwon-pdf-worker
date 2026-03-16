@@ -98,13 +98,31 @@ app.post("/generate", authMiddleware, async (req, res) => {
     const page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: "networkidle",
-      timeout: 15000,
+      waitUntil: "domcontentloaded",
+      timeout: 10000,
     });
 
     console.log(`[PDF-WORKER] generate request: fontEmbed=${!!fontEmbed}`);
+    const imageCount = await page.evaluate(() => document.images.length);
+    console.log(`[PDF-WORKER] waiting for fonts and images, imageCount=${imageCount}`);
+
     await page.evaluateHandle("document.fonts.ready");
-    console.log("[PDF-WORKER] document.fonts.ready completed, generating PDF");
+    await page.evaluate(() => {
+      const imgs = Array.from(document.images);
+      return Promise.all(
+        imgs.map(
+          (img) =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise((resolve) => {
+                  img.onload = resolve;
+                  img.onerror = resolve;
+                })
+        )
+      );
+    });
+
+    console.log("[PDF-WORKER] fonts and images ready, generating PDF");
     await page.emulateMedia({ media: "print" });
 
     const pdfBuffer = await page.pdf({

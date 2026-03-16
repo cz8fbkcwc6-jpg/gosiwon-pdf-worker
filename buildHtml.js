@@ -68,9 +68,10 @@ export function buildHtml(payload) {
 
   const signedAtStr = signedAt ? new Date(signedAt).toISOString() : "";
   const localFontCss = fontFaceCss(fontEmbed);
-  const fallbackFontLink = !localFontCss
-    ? `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=block" rel="stylesheet" />`
-    : "";
+  // When fontEmbed is present, use only embedded @font-face; no Google Fonts <link>.
+  const fallbackFontLink = fontEmbed
+    ? ""
+    : `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=block" rel="stylesheet" />`;
 
   return `<!DOCTYPE html>
 <html lang="ko">
