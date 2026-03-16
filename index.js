@@ -5,7 +5,7 @@
  */
 import express from "express";
 import { chromium } from "playwright";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { buildHtml } from "./buildHtml.js";
@@ -14,10 +14,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** Fonts directory: pdf-worker/fonts/ when index.js is at pdf-worker/index.js (flat structure). */
 const FONTS_DIR = path.join(__dirname, "fonts");
 
+/** Prefer woff2 (smaller payload); TTF only as fallback. */
 const FONT_CANDIDATES = [
+  { file: "NotoSansKR-Regular.woff2", mime: "font/woff2" },
+  { file: "NotoSansKR-Bold.woff2", mime: "font/woff2" },
   { file: "NotoSansKR-Regular.ttf", mime: "font/ttf" },
   { file: "NotoSansKR-Bold.ttf", mime: "font/ttf" },
-  { file: "NotoSansKR-Regular.woff2", mime: "font/woff2" },
   { file: "NotoSansKR-Regular.otf", mime: "font/otf" },
 ];
 
@@ -26,7 +28,25 @@ let fontEmbed = null;
 
 const FONTS_DIR_ABSOLUTE = path.resolve(FONTS_DIR);
 
+/** Temporary runtime audit for deployed font selection. */
+function startupFontAudit() {
+  console.log("[PDF-WORKER] audit: FONT_CANDIDATES=", JSON.stringify(FONT_CANDIDATES.map((c) => c.file)));
+  let dirList = [];
+  try {
+    dirList = readdirSync(FONTS_DIR);
+  } catch (e) {
+    console.log("[PDF-WORKER] audit: readdirSync(FONTS_DIR) failed", e?.message ?? String(e));
+  }
+  console.log("[PDF-WORKER] audit: readdirSync(FONTS_DIR)=", JSON.stringify(dirList));
+  for (const c of FONT_CANDIDATES) {
+    const full = path.join(FONTS_DIR, c.file);
+    const exists = existsSync(full);
+    console.log(`[PDF-WORKER] audit: existsSync(${c.file})=${exists}`);
+  }
+}
+
 function loadLocalFont() {
+  startupFontAudit();
   for (const { file, mime } of FONT_CANDIDATES) {
     const fontPath = path.join(FONTS_DIR, file);
     const fontPathAbsolute = path.resolve(fontPath);
@@ -99,7 +119,7 @@ app.post("/generate", authMiddleware, async (req, res) => {
 
     await page.setContent(html, {
       waitUntil: "domcontentloaded",
-      timeout: 10000,
+      timeout: 30000,
     });
 
     console.log(`[PDF-WORKER] generate request: fontEmbed=${!!fontEmbed}`);
