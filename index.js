@@ -119,6 +119,10 @@ app.post("/generate", authMiddleware, async (req, res) => {
       ownerSignatureUrl: payload.ownerSignatureUrl,
       residentSignatureUrl: payload.residentSignatureUrl,
       fontEmbed,
+      residentConsent: payload.residentConsent,
+      residentName: payload.residentName,
+      ipAddress: payload.ipAddress,
+      deviceType: payload.deviceType,
     });
 
     const browserInstance = await getBrowser();
