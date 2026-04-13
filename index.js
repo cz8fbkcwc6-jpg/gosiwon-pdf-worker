@@ -133,8 +133,8 @@ app.post("/generate", authMiddleware, async (req, res) => {
     const page = await browserInstance.newPage();
 
     await page.setContent(html, {
-      waitUntil: "domcontentloaded",
-      timeout: 30000,
+      waitUntil: "networkidle",
+      timeout: 120000,
     });
 
     console.log(`[PDF-WORKER] generate request: fontEmbed=${!!fontEmbed}`);
@@ -162,8 +162,13 @@ app.post("/generate", authMiddleware, async (req, res) => {
 
     const pdfBuffer = await page.pdf({
       format: "A4",
-      margin: { top: "15mm", right: "15mm", bottom: "15mm", left: "15mm" },
+      margin: { top: "20mm", bottom: "20mm", left: "25mm", right: "25mm" },
       printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: "<div></div>",
+      footerTemplate: `<div style="width:100%;font-size:9px;font-family:'Noto Sans KR',Malgun Gothic,sans-serif;color:#111;border-top:1px solid #333;padding-top:4px;text-align:center;">
+        <span style="display:inline-block;width:100%;">- <span class="pageNumber"></span> / <span class="totalPages"></span> -</span>
+      </div>`,
     });
 
     await page.close();
