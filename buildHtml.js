@@ -243,9 +243,8 @@ export function buildHtml(payload) {
 
     .doc-header {
       position: relative;
-      text-align: center;
-      margin-bottom: 16pt;
-      padding-bottom: 12pt;
+      margin-bottom: 14pt;
+      padding-bottom: 10pt;
     }
     .contract-no {
       position: absolute;
@@ -256,8 +255,15 @@ export function buildHtml(payload) {
       text-align: right;
       line-height: 1.5;
       color: #111;
+      z-index: 1;
+      max-width: 148px;
+      word-break: break-all;
     }
     .contract-no strong { font-weight: 700; }
+    .doc-title-wrap {
+      text-align: center;
+      padding: 0 150px;
+    }
     .doc-title {
       font-size: 14pt;
       font-weight: 700;
@@ -286,7 +292,8 @@ export function buildHtml(payload) {
       table-layout: fixed;
       font-size: 10pt;
       border: 1px solid #333;
-      margin-bottom: 20pt;
+      margin-bottom: 14pt;
+      page-break-inside: avoid;
     }
     .party-table th,
     .party-table td {
@@ -303,8 +310,7 @@ export function buildHtml(payload) {
     }
 
     .section {
-      margin-top: 20pt;
-      page-break-inside: avoid;
+      margin-top: 14pt;
     }
     .section-title {
       font-size: 10pt;
@@ -314,7 +320,7 @@ export function buildHtml(payload) {
     .section-rule {
       border: none;
       border-bottom: 1px solid #111;
-      margin: 0 0 12pt 0;
+      margin: 0 0 10pt 0;
     }
 
     .info-table {
@@ -323,6 +329,7 @@ export function buildHtml(payload) {
       table-layout: fixed;
       font-size: 10pt;
       border: 1px solid #333;
+      page-break-inside: avoid;
     }
     .info-table th,
     .info-table td {
@@ -348,6 +355,7 @@ export function buildHtml(payload) {
       padding: 14px 16px;
       min-height: 80px;
       background: #fff;
+      page-break-inside: avoid;
     }
     .term-article {
       border-bottom: 1px solid #ccc;
@@ -366,7 +374,10 @@ export function buildHtml(payload) {
     .term-p:last-child { margin-bottom: 0; }
     .term-spacer { margin: 0; height: 6pt; }
 
-    .consent-block { margin-top: 2pt; }
+    .consent-block {
+      margin-top: 2pt;
+      page-break-inside: avoid;
+    }
     .consent-row {
       display: flex;
       gap: 8px;
@@ -386,6 +397,7 @@ export function buildHtml(payload) {
       display: flex;
       gap: 12pt;
       margin-top: 4pt;
+      page-break-inside: avoid;
     }
     .sign-cell {
       flex: 1;
@@ -453,9 +465,11 @@ export function buildHtml(payload) {
   <div class="doc">
     <header class="doc-header">
       <div class="contract-no">계약번호: <strong>${escapeHtml(contractIdFull)}</strong>${ver > 1 ? `<br /><span style="font-weight:600;">개정 버전 ${escapeHtml(String(ver))}</span>` : ""}</div>
-      <h1 class="doc-title">입&nbsp;&nbsp;실&nbsp;&nbsp;계&nbsp;&nbsp;약&nbsp;&nbsp;서</h1>
-      <hr class="title-rule-thick" />
-      <hr class="title-rule-thin" />
+      <div class="doc-title-wrap">
+        <h1 class="doc-title">입&nbsp;&nbsp;실&nbsp;&nbsp;계&nbsp;&nbsp;약&nbsp;&nbsp;서</h1>
+        <hr class="title-rule-thick" />
+        <hr class="title-rule-thin" />
+      </div>
     </header>
 
     <table class="party-table" role="presentation">
