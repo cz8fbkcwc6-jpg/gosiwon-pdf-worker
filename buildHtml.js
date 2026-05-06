@@ -476,11 +476,11 @@ export function buildHtml(payload) {
     <table class="party-table" role="presentation">
       <tbody>
         <tr>
-          <th scope="row">임대인 (원장)</th>
+          <th scope="row">시설 운영자 (원장)</th>
           <td>${escapeHtml(ownerName || "—")}</td>
         </tr>
         <tr>
-          <th scope="row">임차인 (입주민)</th>
+          <th scope="row">입실자 (입주민)</th>
           <td>${escapeHtml(residentName || "—")}</td>
         </tr>
         <tr>
